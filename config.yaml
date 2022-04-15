@@ -1,0 +1,9 @@
+# Copyright 2022 Canonical LTD
+# See LICENSE file for licensing details.
+#
+options:
+  scrape-interval:
+    default: 1m
+    description: |
+      Prometheus configuration for scrape interval of this charm.
+    type: string

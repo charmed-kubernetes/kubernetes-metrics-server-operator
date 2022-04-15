@@ -1,0 +1,32 @@
+name: Test Suite
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-unit:
+    name: Lint & Unit tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Install Dependencies
+      run: |
+        pip install tox
+    - name: Run lint
+      run: tox
+
+  integration-test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Setup operator environment
+        uses: charmed-kubernetes/actions-operator@main
+        with:
+            provider: microk8s
+      - name: Run test
+        run: tox -e integration
