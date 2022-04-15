@@ -1,10 +1,6 @@
-import base64
-from datetime import datetime, timedelta
 import logging
 from pathlib import Path
-from typing import Optional
 import pytest
-import yaml
 
 log = logging.getLogger(__name__)
 
