@@ -7,3 +7,17 @@ options:
     description: |
       Prometheus configuration for scrape interval of this charm.
     type: string
+  base-metrics-server-cpu:
+    default: 40m
+    description: |
+      https://github.com/kubernetes/kubernetes/blob/8bd0a306b599bc8511a238c8c69c03c729767350/cluster/gce/gci/configure-helper.sh#L2402
+    type: string
+  base-metrics-server-memory:
+    default: 40Mi
+    type: string
+  metrics-server-memory-per-node:
+    default: 4
+    type: int
+  metrics-server-min-cluster-size:
+    default: 16
+    type: int

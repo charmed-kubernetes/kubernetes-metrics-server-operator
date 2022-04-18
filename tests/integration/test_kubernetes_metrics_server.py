@@ -6,7 +6,7 @@ log = logging.getLogger(__name__)
 
 
 @pytest.mark.abort_on_fail
-async def test_build_and_deploy_autoscaler_charm(ops_test, metadata):
+async def test_build_and_deploy_metrics_server(ops_test, metadata):
     image = metadata["resources"]["operator-base"]["upstream-source"]
     charm_name = metadata["name"]
 
@@ -28,6 +28,7 @@ async def test_build_and_deploy_autoscaler_charm(ops_test, metadata):
     await ops_test.model.wait_for_idle(status="active")
 
 
-async def test_status_autoscaler_charm(units):
+async def test_status_metrics_server(application, units):
     assert units[0].workload_status == "active"
-    assert units[0].workload_status_message == ""
+    assert units[0].workload_status_message == "Ready"
+    assert application.status == "active"

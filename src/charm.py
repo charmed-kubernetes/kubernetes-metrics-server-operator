@@ -25,13 +25,19 @@ logger = logging.getLogger(__name__)
 
 
 class KubernetesMetricsServerOperator(CharmBase):
+    METRICS_PARAMETERS = {
+        "base-metrics-server-cpu",
+        "base-metrics-server-memory",
+        "metrics-server-memory-per-node",
+        "metrics-server-min-cluster-size",
+    }
     """Charm the service."""
 
     def __init__(self, *args):
         super().__init__(*args)
         jobs = [
             {
-                "scrape_interval": self.model.config["scrape-interval"],
+                "scrape_interval": self.config["scrape-interval"],
                 "static_configs": [
                     {
                         "targets": ["*:8080", "*:8081"],
@@ -53,7 +59,12 @@ class KubernetesMetricsServerOperator(CharmBase):
         manifests = Manifests(self)
 
         try:
-            manifests.apply_manifests("metrics-server")
+            context = {
+                k.replace("-", "_"): v
+                for k, v in self.config.items()
+                if k in self.METRICS_PARAMETERS
+            }
+            manifests.apply_manifests(context, "metrics-server")
             self.unit.status = ActiveStatus("Ready")
         except ConnectionError:
             self.unit.status = WaitingStatus("Waiting for API server.")
@@ -66,7 +77,7 @@ class KubernetesMetricsServerOperator(CharmBase):
     def _cleanup(self, _):
         self.unit.status = WaitingStatus("Shutting down")
         manifests = Manifests(self)
-        manifests.delete_manifest("metrics-server", ignore_unauthorized=True)
+        manifests.delete_manifests("metrics-server", ignore_unauthorized=True)
 
 
 if __name__ == "__main__":
