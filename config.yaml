@@ -2,11 +2,6 @@
 # See LICENSE file for licensing details.
 #
 options:
-  scrape-interval:
-    default: 1m
-    description: |
-      Prometheus configuration for scrape interval of this charm.
-    type: string
   base-metrics-server-cpu:
     default: 40m
     description: |

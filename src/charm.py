@@ -18,7 +18,6 @@ from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
 
-from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
 from manifests import Manifests
 
 logger = logging.getLogger(__name__)
@@ -35,19 +34,6 @@ class KubernetesMetricsServerOperator(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        jobs = [
-            {
-                "scrape_interval": self.config["scrape-interval"],
-                "static_configs": [
-                    {
-                        "targets": ["*:8080", "*:8081"],
-                    }
-                ],
-            }
-        ]
-
-        self.monitoring = MetricsEndpointProvider(self, jobs=jobs)
-
         self.framework.observe(self.on.install, self._install_or_upgrade)
         self.framework.observe(self.on.upgrade_charm, self._install_or_upgrade)
         self.framework.observe(self.on.config_changed, self._install_or_upgrade)

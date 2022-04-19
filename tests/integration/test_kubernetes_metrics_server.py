@@ -41,7 +41,7 @@ async def test_charm_status(application, units):
     assert application.workload_version == version
 
 
-async def test_node_metrics(application, kubernetes: lightkube.Client):
+async def test_node_metrics(application, kubernetes):
     @retry(
         wait=wait_exponential(multiplier=1, min=1, max=10),
         stop=stop_after_delay(120),
