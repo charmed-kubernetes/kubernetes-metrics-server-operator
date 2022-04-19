@@ -3,31 +3,17 @@ import logging
 import pytest
 import pytest_asyncio
 from pathlib import Path
-import random
-import string
 import yaml
 
-from lightkube import KubeConfig, Client
-from lightkube.resources.core_v1 import Namespace
-from lightkube.models.meta_v1 import ObjectMeta
+from lightkube import Client
 
 log = logging.getLogger(__name__)
 
 
 @pytest_asyncio.fixture(scope="module")
-async def kubernetes(charmed_kubernetes, request, module_name):
-    rand_str = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
-    namespace = f"{module_name}-{rand_str}"
-    config = KubeConfig.from_file(charmed_kubernetes.kubeconfig)
-    client = Client(
-        config=config.get(context_name="juju-context"),
-        namespace=namespace,
-        trust_env=False,
-    )
-    namespace_obj = Namespace(metadata=ObjectMeta(name=namespace))
-    client.create(namespace_obj)
+async def kubernetes(request):
+    client = Client(trust_env=False)
     yield client
-    client.delete(Namespace, namespace)
 
 
 @pytest.fixture

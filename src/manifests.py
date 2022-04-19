@@ -19,7 +19,7 @@ class Manifests:
 
     @property
     def version(self):
-        return Path("upstream", "version").read_text(encoding="utf-8")
+        return Path("upstream", "version").read_text(encoding="utf-8").strip()
 
     def apply_manifests(self, context: Dict[str, str], *components: str):
         for component in components:
@@ -31,9 +31,10 @@ class Manifests:
             for manifest in Path("upstream", "manifests", component).glob("*.yaml"):
                 self._delete_manifest(manifest, **kwargs)
 
-    def _annotate(self, content: str) -> str:
+    def _modifications(self, content: str) -> str:
         def _add_label(obj):
             obj["metadata"].setdefault("labels", {})
+            obj["metadata"].setdefault("name", "")
             obj["metadata"]["labels"][self.application] = "true"
 
         data = [_ for _ in yaml.safe_load_all(content) if _]
@@ -48,14 +49,13 @@ class Manifests:
     def _apply_manifest(self, filepath: Path, context: Dict[str, str]):
         template = Template(filepath.read_text())
         content = template.render(**context)
-        text = self._annotate(content)
+        text = self._modifications(content)
         for obj in codecs.load_all_yaml(text):
             resource_type = type(obj)
             name = obj.metadata.name
             namespace = obj.metadata.namespace
-            self.delete_resource(
+            self._delete_resource(
                 resource_type,
-                name,
                 namespace=namespace,
                 ignore_not_found=True,
             )
@@ -74,29 +74,33 @@ class Manifests:
     ):
         text = filepath.read_text()
         for obj in codecs.load_all_yaml(text):
-            self.delete_resource(
+            self._delete_resource(
                 type(obj),
-                obj.metadata.name,
                 namespace=obj.metadata.namespace or namespace,
-                **kwargs
+                **kwargs,
             )
 
-    def delete_resource(
+    def _delete_resource(
         self,
-        resource_type,
-        name: str,
+        rsc,
         namespace: Optional[str] = None,
         ignore_not_found: bool = False,
         ignore_unauthorized: bool = False,
     ):
-        """Delete a resource."""
+        """Delete labeled resources."""
         try:
             log.info(
-                f"Deleting {resource_type}/{name}" + f"from {namespace}"
+                f"Deleting {rsc} with label {self.application}=true"
+                + f"from {namespace}"
                 if namespace
                 else ""
             )
-            self.client.delete(resource_type, name, namespace=namespace)
+            for obj in self.client.list(
+                rsc, namespace=namespace, labels={self.application: "true"}
+            ):
+                self.client.delete(
+                    rsc, obj.metadata.name, namespace=obj.metadata.namespace
+                )
         except ApiError as err:
             if err.status.message is not None:
                 err_lower = err.status.message.lower()

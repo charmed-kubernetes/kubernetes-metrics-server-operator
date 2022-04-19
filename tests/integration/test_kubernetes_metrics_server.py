@@ -1,12 +1,14 @@
 import logging
 from pathlib import Path
+
+import lightkube.generic_resource
 import pytest
 
 log = logging.getLogger(__name__)
 
 
 @pytest.mark.abort_on_fail
-async def test_build_and_deploy_metrics_server(ops_test, metadata):
+async def test_charm_builds_and_deploys(ops_test, metadata):
     image = metadata["resources"]["operator-base"]["upstream-source"]
     charm_name = metadata["name"]
 
@@ -28,7 +30,19 @@ async def test_build_and_deploy_metrics_server(ops_test, metadata):
     await ops_test.model.wait_for_idle(status="active")
 
 
-async def test_status_metrics_server(application, units):
+async def test_charm_status(application, units):
+    version = Path("upstream", "version").read_text().strip()
+
     assert units[0].workload_status == "active"
     assert units[0].workload_status_message == "Ready"
     assert application.status == "active"
+    assert application.workload_version == version
+
+
+async def test_node_metrics(kubernetes):
+    NodeMetrics = lightkube.generic_resource.create_global_resource(
+        "metrics.k8s.io", "v1beta1", "NodeMetrics", "nodes"
+    )
+    node_metrics = kubernetes.list(NodeMetrics)
+    for each in node_metrics:
+        assert each["usage"]["cpu"]
