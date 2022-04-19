@@ -2,7 +2,8 @@ import logging
 from pathlib import Path
 
 import lightkube.generic_resource
-from lightkube.resources.apps_v1 import Deployment
+from lightkube.resources.core_v1 import Pod
+from tenacity import retry, wait_exponential, stop_after_delay, before_log
 
 import pytest
 
@@ -41,20 +42,21 @@ async def test_charm_status(application, units):
 
 
 async def test_node_metrics(application, kubernetes: lightkube.Client):
-    metrics = kubernetes.list(
-        Deployment, namespace="kube-system", labels={application.name: "true"}
+    @retry(
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        stop=stop_after_delay(120),
+        reraise=True,
+        before=before_log(log, logging.INFO),
     )
-    avail = "Available"
-    for ob in metrics:
-        ready = ob.status and any(
-            c.type == avail for c in ob.status.conditions if c.status == "True"
-        )
-        if not ready:
-            kubernetes.wait(type(ob), ob.metadata.name, for_conditions=[avail])
+    def wait_for_ready():
+        ns = "kube-system"
+        labels = {application.name: "true"}
+        pods = kubernetes.list(Pod, namespace=ns, labels=labels)
+        assert all(cont.ready for pod in pods for cont in pod.status.containerStatuses)
 
+    wait_for_ready()
     NodeMetrics = lightkube.generic_resource.create_global_resource(
         "metrics.k8s.io", "v1beta1", "NodeMetrics", "nodes"
     )
     node_metrics = kubernetes.list(NodeMetrics)
-    for each in node_metrics:
-        assert each["usage"]["cpu"]
+    assert all(each["usage"]["cpu"] for each in node_metrics)

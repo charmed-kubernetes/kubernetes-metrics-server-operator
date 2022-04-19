@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 @pytest_asyncio.fixture(scope="module")
 async def kubernetes(request):
-    client = Client(trust_env=False)
+    client = Client()
     yield client
 
 
