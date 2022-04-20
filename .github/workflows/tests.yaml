@@ -30,3 +30,41 @@ jobs:
             provider: microk8s
       - name: Run test
         run: tox -e integration
+      - name: Setup Debug Artifact Collection
+        if: ${{ failure() }}
+        run: mkdir tmp
+      - name: Collect K8s Status
+        if: ${{ failure() }}
+        run: sudo microk8s.kubectl get all -A 2>&1 | tee tmp/microk8s-status-all.txt
+      - name: Collect Juju Status
+        if: ${{ failure() }}
+        run: sudo juju status 2>&1 | tee tmp/juju-status.txt
+      - name: Collect K8s Deployment details
+        if: ${{ failure() }}
+        run: sudo microk8s.kubectl describe deployments -A 2>&1 | tee tmp/microk8s-deployments.txt
+      - name: Collect K8s DaemonSet details
+        if: ${{ failure() }}
+        run: sudo microk8s.kubectl describe apiservice -A 2>&1 | tee tmp/microk8s-apiservice.txt
+      - name: Collect K8s pod logs
+        if: ${{ failure() }}
+        run: |
+          for ns in `sudo microk8s.kubectl get pods -A | awk '{printf "%s;%s\n",$1,$2 }' | grep -v NAME`; do
+            NS_POD=(${ns//;/' '})
+            echo "Pod logs for: $NS_POD"
+            echo "----------------------------------"
+            sudo microk8s.kubectl logs ${NS_POD[1]} -n ${NS_POD[0]} 2>&1 | tee tmp/pod-${NS_POD[0]}-logs.txt
+            echo
+            echo
+          done
+      - name: Collect microk8s snap logs
+        if: ${{ failure() }}
+        run: sudo snap logs -n 300 microk8s 2>&1 | tee tmp/snap-log-microk8s.txt
+      - name: Collect Juju logs for kubernetes-metrics-server-operator
+        if: ${{ failure() }}
+        run: sudo juju debug-log --replay --no-tail -i kubernetes-metrics-server-operator | tee tmp/unit-kubernetes-metrics-server-operator-0.log
+      - name: Upload debug artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-run-artifacts
+          path: tmp
