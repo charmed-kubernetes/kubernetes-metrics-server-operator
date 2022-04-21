@@ -6,6 +6,18 @@ on:
     branches: [main]
 
 jobs:
+  Inclusive-naming-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: woke
+        uses: canonical-web-and-design/inclusive-naming@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-check
+          fail-on-error: true
+
   lint-and-unit:
     name: Lint & Unit tests
     runs-on: ubuntu-latest
