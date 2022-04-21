@@ -27,9 +27,8 @@ async def test_charm_builds_and_deploys(ops_test, metadata):
     )
 
     await ops_test.model.block_until(
-        lambda: charm_name in ops_test.model.applications, timeout=60
+        lambda: charm_name in ops_test.model.applications, timeout=60 * 5
     )
-
     await ops_test.model.wait_for_idle(status="active")
 
 
