@@ -40,6 +40,32 @@ class KubernetesMetricsServerOperator(CharmBase):
         self.framework.observe(self.on.leader_elected, self._set_version)
         self.framework.observe(self.on.stop, self._cleanup)
 
+        self.framework.observe(self.on.list_resources_action, self._list_resources)
+        self.framework.observe(self.on.scrub_resources_action, self._scrub_resources)
+
+    def _list_resources(self, event):
+        res = [_.lower() for _ in event.params.get("resources", "").split()]
+        event.log(f"Filter resource listing with {res}")
+        objects = sorted(
+            [
+                f"{type(obj).__name__}/{obj.metadata.name}{'*' if current else ''}"
+                for obj, current in Manifests(self).charm_resources("metrics-server")
+                if not res or (type(obj).__name__.lower() in res)
+            ]
+        )
+        event.set_results({"resources": "\n".join(objects)})
+
+    def _scrub_resources(self, event):
+        manifests = Manifests(self)
+        res = [_.lower() for _ in event.params.get("resources", "").split()]
+        objects = [
+            (obj, current)
+            for obj, current in manifests.charm_resources("metrics-server")
+            if not res or (type(obj).__name__.lower() in res)
+        ]
+        manifests.delete_resources(*(obj for obj, current in objects if not current))
+        return self._list_resources(event)
+
     def _install_or_upgrade(self, _):
         """Install the manifests."""
         manifests = Manifests(self)

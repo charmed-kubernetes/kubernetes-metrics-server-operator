@@ -21,6 +21,17 @@ class Manifests:
     def version(self):
         return Path("upstream", "version").read_text(encoding="utf-8").strip()
 
+    def charm_resources(self, *components: str):
+        return (
+            (res, current)
+            for component in components
+            for manifest in Path("upstream", "manifests", component).glob("*.yaml")
+            for res, current in self._list_manifest(
+                manifest,
+                labels={self.application: "true"},
+            )
+        )
+
     def apply_manifests(self, context: Dict[str, str], *components: str):
         for component in components:
             for manifest in Path("upstream", "manifests", component).glob("*.yaml"):
@@ -46,25 +57,28 @@ class Manifests:
                 _add_label(part)
         return yaml.safe_dump_all(data)
 
+    def _list_manifest(self, filepath: Path, **selectors):
+        text = filepath.read_text()
+        thing = [
+            (res, res.metadata.name == obj.metadata.name)
+            for obj in codecs.load_all_yaml(text)
+            for res in self.client.list(
+                type(obj), namespace=obj.metadata.namespace, **selectors
+            )
+        ]
+        return thing
+
     def _apply_manifest(self, filepath: Path, context: Dict[str, str]):
         template = Template(filepath.read_text())
         content = template.render(**context)
         text = self._modifications(content)
         for obj in codecs.load_all_yaml(text):
-            resource_type = type(obj)
             name = obj.metadata.name
             namespace = obj.metadata.namespace
-            self._delete_resource(
-                resource_type,
-                namespace=namespace,
-                ignore_not_found=True,
-            )
             log.info(
-                f"Adding {resource_type}/{name}" + f"from {namespace}"
-                if namespace
-                else ""
+                f"Adding {obj.kind}/{name}" + (f" to {namespace}" if namespace else "")
             )
-            self.client.create(obj)
+            self.client.apply(obj, name)
 
     def _delete_manifest(
         self,
@@ -74,49 +88,44 @@ class Manifests:
     ):
         text = filepath.read_text()
         for obj in codecs.load_all_yaml(text):
-            self._delete_resource(
-                type(obj),
+            self.delete_resources(
+                obj,
                 namespace=obj.metadata.namespace or namespace,
                 **kwargs,
             )
 
-    def _delete_resource(
+    def delete_resources(
         self,
-        rsc,
+        *resources,
         namespace: Optional[str] = None,
         ignore_not_found: bool = False,
         ignore_unauthorized: bool = False,
     ):
-        """Delete labeled resources."""
-        try:
-            log.info(
-                f"Deleting {rsc} with label {self.application}=true"
-                + f"from {namespace}"
-                if namespace
-                else ""
-            )
-            for obj in self.client.list(
-                rsc, namespace=namespace, labels={self.application: "true"}
-            ):
-                self.client.delete(
-                    rsc, obj.metadata.name, namespace=obj.metadata.namespace
+        """Delete named resources."""
+        for obj in resources:
+            try:
+                namespace = obj.metadata.namespace or namespace
+                log.info(
+                    f"Deleting {type(obj).__name__}/{obj.metadata.name}"
+                    + (f" to {namespace}" if namespace else "")
                 )
-        except ApiError as err:
-            if err.status.message is not None:
-                err_lower = err.status.message.lower()
-                if "not found" in err_lower and ignore_not_found:
-                    log.warning(f"Ignoring not found error: {err.status.message}")
-                elif "(unauthorized)" in err_lower and ignore_unauthorized:
-                    # Ignore error from https://bugs.launchpad.net/juju/+bug/1941655
-                    log.warning(f"Ignoring unauthorized error: {err.status.message}")
+                self.client.delete(type(obj), obj.metadata.name, namespace=namespace)
+            except ApiError as err:
+                if err.status.message is not None:
+                    err_lower = err.status.message.lower()
+                    if "not found" in err_lower and ignore_not_found:
+                        log.warning(f"Ignoring not found error: {err.status.message}")
+                    elif "(unauthorized)" in err_lower and ignore_unauthorized:
+                        # Ignore error from https://bugs.launchpad.net/juju/+bug/1941655
+                        log.warning(f"Unauthorized error ignored: {err.status.message}")
+                    else:
+                        log.exception(
+                            "ApiError encountered while attempting to delete resource: "
+                            + err.status.message
+                        )
+                        raise
                 else:
                     log.exception(
-                        "ApiError encountered while attempting to delete resource: "
-                        + err.status.message
+                        "ApiError encountered while attempting to delete resource."
                     )
                     raise
-            else:
-                log.exception(
-                    "ApiError encountered while attempting to delete resource."
-                )
-                raise
