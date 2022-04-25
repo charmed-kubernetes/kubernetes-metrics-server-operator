@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 @pytest.fixture()
 def update_status_timeout():
-    return 60 * 2 + 30  # 2m 30s
+    return 60 * 5 + 30  # 5m 30s
 
 
 @pytest.mark.abort_on_fail
