@@ -3,9 +3,19 @@
 #
 options:
   registry-server:
-    default: rocks.canonical.com:443/cdk
     type: string
-    description: Source registry of metrics server images.
+    description: |
+      Source registry of metrics server images.
+
+      By setting to a value, each image listed in the component.yaml
+      has its registry-server replaces. 
+
+      If unset, the component.yaml will use its default image registry.
+
+      example)
+        juju config kubernetes-metrics-server registry-server='rocks.canonical.com:443/cdk'
+
+        juju config kubernetes-metrics-server --reset registry-server
   release:
     type: string
     description: |

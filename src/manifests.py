@@ -154,6 +154,8 @@ class Manifests:
 
         def _adjust_registry(obj):
             registry = self.config.get("registry-server")
+            if not registry:
+                return
             spec = obj.get("spec") or {}
             template = spec and spec.get("template") or {}
             inner_spec = template and template.get("spec") or {}
