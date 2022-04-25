@@ -2,19 +2,22 @@
 
 [![Test Suite](https://github.com/charmed-kubernetes/kubernetes-metrics-server-operator/workflows/Test%20Suite/badge.svg)](https://github.com/charmed-kubernetes/kubernetes-metrics-server-operator/actions)
 
-[Metrics Server](https://github.com/kubernetes-incubator/metrics-server) exposes
+[Metrics Server](https://github.com/kubernetes-sigs/metrics-server) exposes
 core Kubernetes metrics via metrics API through a juju deployed charm into a kubernetes cluster model. 
 
 More details can be found in [Core metrics pipeline documentation](https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/).
 
-## Troubleshooting
+## Metrics Server Charm
 
-Metrics Server supports up to 30 pods per cluster node. In clusters where there are more running pods, Metrics Server may be throttled or fail with OOM error. Starting with Kubernetes 1.9.2, Metrics Server resource requirements may be overwritten manually. [Learn more about Addon Resizer configuration](https://github.com/kubernetes/autoscaler/tree/master/addon-resizer#addon-resizer-configuration)
+* Supports switching between releases of the metrics server based on what the charm 
+has been generate with.
 
-### Important notices
+```bash
+juju config kubernetes-metrics-server release='v0.6.1'
+```
 
-Decreasing resource requirements for cluster addons may cause system instability. The effects may include (but are not limited to):
-  - Horizontal Pod Autoscaler not working
-  - `kubectl top` not working (starting with Kubernetes 1.10)
+* Supports easily changing the image repository to a mirrored registry server
+```bash
+juju config kubernetes-metrics-server registry-server='rocks.canonical.com:443/cdk'
+```
 
-Overwritten configuration persists through cluster updates, therefore may cause all effects above after a cluster update.
