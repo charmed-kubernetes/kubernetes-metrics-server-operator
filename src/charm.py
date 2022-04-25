@@ -80,18 +80,20 @@ class KubernetesMetricsServerOperator(CharmBase):
             self._list_resources(event)
 
     def _update_status(self, _):
+        unready = []
         for resource in self.manifests.status():
             for cond in resource.status.conditions:
                 if cond.status != "True":
-                    self.unit.status = WaitingStatus(
-                        f"Waiting for {resource} Condition:{cond.type}"
-                    )
-                    return
-        self.unit.status = ActiveStatus("Ready")
-        self.unit.set_workload_version(self.manifests.current_release)
+                    unready.append(f"{resource}-{cond.type}")
+        if unready:
+            self.unit.status = WaitingStatus(f"Not-Ready: {', '.join(unready)}")
+        else:
+            self.unit.status = ActiveStatus("Ready")
+            self.unit.set_workload_version(self.manifests.current_release)
 
     def _install_or_upgrade(self, _):
         """Install the manifests."""
+        self.unit.set_workload_version("")
         try:
             self.manifests.apply_manifests()
         except ConnectionError:
