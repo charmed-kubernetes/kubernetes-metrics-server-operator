@@ -4,10 +4,9 @@ from collections import defaultdict, namedtuple
 from functools import cached_property
 from itertools import islice
 from pathlib import Path
-from typing import Dict, Mapping, Optional, Set, Union
+from typing import Mapping, Optional, Set, Union
 
 import yaml
-from jinja2 import Template
 from lightkube import Client, codecs
 from lightkube.core.client import NamespacedResource, GlobalResource
 from lightkube.core.exceptions import ApiError
@@ -47,25 +46,36 @@ class HashableResource:
 
 
 class Manifests:
-    def __init__(self, charm, *components: str):
+    def __init__(self, charm):
+        self.config = charm.config
         self.namespace = charm.model.name
         self.application = charm.model.app.name
-        self.components = components
         self.client = Client(namespace=self.namespace, field_manager=self.application)
 
     @property
-    def version(self) -> str:
+    def releases(self):
+        return [
+            manifests.parent.name
+            for manifests in Path("upstream", "manifests").glob("*/*.yaml")
+        ]
+
+    @property
+    def current_release(self) -> str:
+        return self.config.get("release") or self.latest_release
+
+    @property
+    def latest_release(self) -> str:
         return Path("upstream", "version").read_text(encoding="utf-8").strip()
 
     @cached_property
     def resources(self) -> Mapping[NamespaceKind, Set[HashableResource]]:
         """All component resource sets subdivided by kind and namespace."""
         result: Mapping[NamespaceKind, Set[HashableResource]] = defaultdict(set)
-        for component in self.components:
-            for manifest in Path("upstream", "manifests", component).glob("*.yaml"):
-                for obj in codecs.load_all_yaml(manifest.read_text()):
-                    kind_ns = NamespaceKind(obj.kind, obj.metadata.namespace)
-                    result[kind_ns].add(HashableResource(obj))
+        ver = self.current_release
+        for manifest in Path("upstream", "manifests", ver).glob("*.yaml"):
+            for obj in codecs.load_all_yaml(manifest.read_text()):
+                kind_ns = NamespaceKind(obj.kind, obj.metadata.namespace)
+                result[kind_ns].add(HashableResource(obj))
         return result
 
     def status(self) -> Set[HashableResource]:
@@ -116,20 +126,18 @@ class Manifests:
             for obj in islice(resources, 1)  # take the first element if it exists
         }
 
-    def apply_manifests(self, context: Dict[str, str]):
-        for component in self.components:
-            for manifest in Path("upstream", "manifests", component).glob("*.yaml"):
-                self._apply_manifest(manifest, context)
+    def apply_manifests(self):
+        ver = self.current_release
+        for component in Path("upstream", "manifests", ver).glob("*.yaml"):
+            self._apply_manifest(component)
 
     def delete_manifests(self, **kwargs):
         for resources in self.resources.values():
             for obj in resources:
                 self.delete_resource(obj, **kwargs)
 
-    def _apply_manifest(self, filepath: Path, context: Dict[str, str]):
-        template = Template(filepath.read_text())
-        content = template.render(**context)
-        text = self._modifications(content)
+    def _apply_manifest(self, filepath: Path):
+        text = self._modifications(filepath.read_text())
         for obj in codecs.load_all_yaml(text):
             name = obj.metadata.name
             namespace = obj.metadata.namespace
@@ -144,13 +152,28 @@ class Manifests:
             obj["metadata"].setdefault("name", "")
             obj["metadata"]["labels"][self.application] = "true"
 
+        def _adjust_registry(obj):
+            registry = self.config.get("registry-server")
+            spec = obj.get("spec") or {}
+            template = spec and spec.get("template") or {}
+            inner_spec = template and template.get("spec") or {}
+            containers = inner_spec and inner_spec.get("containers") or {}
+            for container in containers:
+                if full_image := container.get("image"):
+                    _, image = full_image.split("/", 1)
+                    new_full_image = f"{registry}/{image}"
+                    container["image"] = new_full_image
+                    log.info(f"Replacing {full_image} with {new_full_image}")
+
         data = [_ for _ in yaml.safe_load_all(content) if _]
         for part in data:
             if part["kind"] == "List":
                 for item in part["items"]:
                     _add_label(item)
+                    _adjust_registry(item)
             else:
                 _add_label(part)
+                _adjust_registry(part)
         return yaml.safe_dump_all(data)
 
     def delete_resources(

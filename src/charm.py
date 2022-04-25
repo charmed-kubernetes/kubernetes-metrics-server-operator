@@ -24,12 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 class KubernetesMetricsServerOperator(CharmBase):
-    METRICS_PARAMETERS = {
-        "base-metrics-server-cpu",
-        "base-metrics-server-memory",
-        "metrics-server-memory-per-node",
-        "metrics-server-min-cluster-size",
-    }
     """Charm the service."""
 
     def __init__(self, *args):
@@ -40,11 +34,18 @@ class KubernetesMetricsServerOperator(CharmBase):
         self.framework.observe(self.on.leader_elected, self._set_version)
         self.framework.observe(self.on.stop, self._cleanup)
 
+        self.framework.observe(self.on.list_versions_action, self._list_versions)
         self.framework.observe(self.on.list_resources_action, self._list_resources)
         self.framework.observe(self.on.scrub_resources_action, self._scrub_resources)
         self.framework.observe(self.on.update_status, self._update_status)
 
-        self.manifests = Manifests(self, "metrics-server")
+        self.manifests = Manifests(self)
+
+    def _list_versions(self, event):
+        result = {
+            "versions": "\n".join(sorted(str(_) for _ in self.manifests.releases)),
+        }
+        event.set_results(result)
 
     def _list_resources(self, event):
         res_filter = [_.lower() for _ in event.params.get("resources", "").split()]
@@ -92,22 +93,14 @@ class KubernetesMetricsServerOperator(CharmBase):
     def _install_or_upgrade(self, _):
         """Install the manifests."""
         try:
-            context = {
-                k.replace("-", "_"): v
-                for k, v in self.config.items()
-                if k in self.METRICS_PARAMETERS
-            }
-            self.manifests.apply_manifests(
-                context,
-            )
+            self.manifests.apply_manifests()
         except ConnectionError:
             self.unit.status = WaitingStatus("Waiting for API server.")
         self._update_status(_)
 
     def _set_version(self, _event=None):
         if self.unit.is_leader():
-            manifests = Manifests(self)
-            self.unit.set_workload_version(manifests.version)
+            self.unit.set_workload_version(self.manifests.current_release)
 
     def _cleanup(self, _):
         self.unit.status = WaitingStatus("Shutting down")

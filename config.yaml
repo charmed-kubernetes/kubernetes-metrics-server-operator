@@ -2,17 +2,24 @@
 # See LICENSE file for licensing details.
 #
 options:
-  base-metrics-server-cpu:
-    default: 40m
+  registry-server:
+    default: rocks.canonical.com/cdk
+    type: string
+    description: Source registry of metrics server images.
+  release:
+    type: string
     description: |
-      https://github.com/kubernetes/kubernetes/blob/8bd0a306b599bc8511a238c8c69c03c729767350/cluster/gce/gci/configure-helper.sh#L2402
-    type: string
-  base-metrics-server-memory:
-    default: 40Mi
-    type: string
-  metrics-server-memory-per-node:
-    default: 4
-    type: int
-  metrics-server-min-cluster-size:
-    default: 16
-    type: int
+      Specify the version of metrics-server as defined by
+      https://github.com/kubernetes-sigs/metrics-server/releases
+
+      example)
+        juju config kubernetes-metrics-server release='v0.6.1'
+      
+      A list of supported versions is available through the action:
+        juju run-action kubernetes-metrics-server/0 list-releases --wait
+      
+      To reset by to the latest supported by the charm use:
+        juju config kubernetes-metrics-server --reset release
+      
+      The current release deployed is available by viewing
+        juju status kubernetes-metrics-server
