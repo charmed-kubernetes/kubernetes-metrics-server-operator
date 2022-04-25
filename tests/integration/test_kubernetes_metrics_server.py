@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from juju.application import Application
 
 import lightkube.generic_resource
 import pytest
@@ -27,6 +28,17 @@ async def test_charm_builds_and_deploys(ops_test, metadata):
         lambda: charm_name in ops_test.model.applications, timeout=60 * 5
     )
     await ops_test.model.wait_for_idle(status="active")
+
+
+async def test_adjust_version(application: Application, ops_test):
+    await application.set_config(dict(release="v0.6.0"))
+    await ops_test.model.block_until(
+        lambda: application.name in ops_test.model.applications, timeout=60 * 5
+    )
+    await application.reset_config(['release'])
+    await ops_test.model.block_until(
+        lambda: application.name in ops_test.model.applications, timeout=60 * 5
+    )
 
 
 async def test_charm_status(application, units):

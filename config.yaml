@@ -3,7 +3,7 @@
 #
 options:
   registry-server:
-    default: rocks.canonical.com/cdk
+    default: rocks.canonical.com:443/cdk
     type: string
     description: Source registry of metrics server images.
   release:

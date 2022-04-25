@@ -31,7 +31,6 @@ class KubernetesMetricsServerOperator(CharmBase):
         self.framework.observe(self.on.install, self._install_or_upgrade)
         self.framework.observe(self.on.upgrade_charm, self._install_or_upgrade)
         self.framework.observe(self.on.config_changed, self._install_or_upgrade)
-        self.framework.observe(self.on.leader_elected, self._set_version)
         self.framework.observe(self.on.stop, self._cleanup)
 
         self.framework.observe(self.on.list_versions_action, self._list_versions)
@@ -89,6 +88,7 @@ class KubernetesMetricsServerOperator(CharmBase):
                     )
                     return
         self.unit.status = ActiveStatus("Ready")
+        self.unit.set_workload_version(self.manifests.current_release)
 
     def _install_or_upgrade(self, _):
         """Install the manifests."""
@@ -96,11 +96,9 @@ class KubernetesMetricsServerOperator(CharmBase):
             self.manifests.apply_manifests()
         except ConnectionError:
             self.unit.status = WaitingStatus("Waiting for API server.")
-        self._update_status(_)
-
-    def _set_version(self, _event=None):
-        if self.unit.is_leader():
-            self.unit.set_workload_version(self.manifests.current_release)
+        self.unit.status = WaitingStatus(
+            f"Configuring metrics-server {self.manifests.current_release}"
+        )
 
     def _cleanup(self, _):
         self.unit.status = WaitingStatus("Shutting down")
