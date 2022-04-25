@@ -1,8 +1,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 name: kubernetes-metrics-server
-summary: Operator Charm for kube-state-metrics
-docs: https://discourse.charmhub.io/t/kubernetes-metrics-server-docs-index/420
+summary: Operator Charm for Kubernetes metrics server
 description: |
   Metrics Server exposes core Kubernetes metrics via metrics API.
   See https://github.com/kubernetes/kubernetes/tree/<release-tag>/cluster/addons/metrics-server
@@ -16,7 +15,3 @@ resources:
     type: oci-image
     description: Base image for the operator to run with (ubuntu:focal)
     upstream-source: ubuntu:focal
-
-provides:
-  metrics-endpoint:
-    interface: prometheus_scrape

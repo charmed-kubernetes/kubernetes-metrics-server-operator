@@ -24,25 +24,22 @@ async def test_charm_builds_and_deploys(ops_test, metadata):
     )
 
     await ops_test.model.block_until(
-        lambda: charm_name in ops_test.model.applications, timeout=60
+        lambda: charm_name in ops_test.model.applications, timeout=60 * 5
     )
-
     await ops_test.model.wait_for_idle(status="active")
 
 
 async def test_charm_status(application, units):
     version = Path("upstream", "version").read_text().strip()
-
     assert units[0].workload_status == "active"
     assert units[0].workload_status_message == "Ready"
     assert application.status == "active"
     assert application.workload_version == version
 
 
-async def test_node_metrics(kubernetes):
+async def test_node_metrics(application, kubernetes):
     NodeMetrics = lightkube.generic_resource.create_global_resource(
         "metrics.k8s.io", "v1beta1", "NodeMetrics", "nodes"
     )
     node_metrics = kubernetes.list(NodeMetrics)
-    for each in node_metrics:
-        assert each["usage"]["cpu"]
+    assert all(each["usage"]["cpu"] for each in node_metrics)

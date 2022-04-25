@@ -22,4 +22,4 @@ def test_metrics_server_after_config_minimal(lightkube_client, harness):
     assert harness.model.unit.status == MaintenanceStatus("")
     harness.update_config({})
     assert harness.model.unit.status == ActiveStatus("Ready")
-    lightkube_client.create.assert_called()
+    lightkube_client.apply.assert_called()
