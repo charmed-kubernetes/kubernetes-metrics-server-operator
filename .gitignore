@@ -3,6 +3,7 @@ build/
 *.charm
 .tox/
 .coverage
+htmlcov/
 __pycache__/
 *.py[cod]
 juju-crashdump-*

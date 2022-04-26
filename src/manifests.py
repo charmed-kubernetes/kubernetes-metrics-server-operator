@@ -46,10 +46,11 @@ class HashableResource:
 
 
 class Manifests:
-    def __init__(self, charm):
+    def __init__(self, charm, manipulations):
         self.config = charm.config
         self.namespace = charm.model.name
         self.application = charm.model.app.name
+        self.manipulations = manipulations
         self.client = Client(namespace=self.namespace, field_manager=self.application)
 
     @property
@@ -129,15 +130,15 @@ class Manifests:
     def apply_manifests(self):
         ver = self.current_release
         for component in Path("upstream", "manifests", ver).glob("*.yaml"):
-            self._apply_manifest(component)
+            self.apply_manifest(component)
 
     def delete_manifests(self, **kwargs):
         for resources in self.resources.values():
             for obj in resources:
                 self.delete_resource(obj, **kwargs)
 
-    def _apply_manifest(self, filepath: Path):
-        text = self._modifications(filepath.read_text())
+    def apply_manifest(self, filepath: Path):
+        text = self.modify(filepath.read_text())
         for obj in codecs.load_all_yaml(text):
             name = obj.metadata.name
             namespace = obj.metadata.namespace
@@ -146,66 +147,24 @@ class Manifests:
             )
             self.client.apply(obj, name)
 
-    def _modifications(self, content: str) -> str:
-        def _add_label(obj):
-            obj["metadata"].setdefault("labels", {})
-            obj["metadata"].setdefault("name", "")
-            obj["metadata"]["labels"][self.application] = "true"
+    def add_label(self, obj):
+        obj["metadata"].setdefault("labels", {})
+        obj["metadata"].setdefault("name", "")
+        obj["metadata"]["labels"][self.application] = "true"
 
-        def _adjust_registry(obj):
-            registry = self.config.get("registry-server")
-            if not registry:
-                return
-            spec = obj.get("spec") or {}
-            template = spec and spec.get("template") or {}
-            inner_spec = template and template.get("spec") or {}
-            containers = inner_spec and inner_spec.get("containers") or {}
-            for container in containers:
-                if full_image := container.get("image"):
-                    _, image = full_image.split("/", 1)
-                    new_full_image = f"{registry}/{image}"
-                    container["image"] = new_full_image
-                    log.info(f"Replacing Image: {full_image} with {new_full_image}")
-
-        def _args_or_flags(args_list):
-            """Create unique argument dict from value args or flag args."""
-            return dict(
-                arg.split("=", 1) if "=" in arg else (arg, None) for arg in args_list
-            )
-
-        def _adjust_arguments(obj):
-            """Append the extra-args to the metric-server deployment."""
-            if not (
-                obj.get("kind") == "Deployment"
-                and obj["metadata"]["name"] == "metrics-server"
-            ):
-                return
-            extra_args = self.config.get("extra-args")
-            if not extra_args:
-                return
-            containers = obj["spec"]["template"]["spec"]["containers"]
-            for container in containers:
-                if container["name"] != "metrics-server":
-                    continue
-                full_args = _args_or_flags(container["args"])
-                full_args.update(**_args_or_flags(extra_args.split()))
-                new_args = [
-                    arg if value is None else f"{arg}={value}"
-                    for arg, value in full_args.items()
-                ]
-                log.info(f"Replacing Args: {full_args} with {new_args}")
-
+    def modify(self, content: str) -> str:
         data = [_ for _ in yaml.safe_load_all(content) if _]
+
+        def adjust(obj):
+            for manipulate in self.manipulations:
+                manipulate(obj)
+
         for part in data:
             if part["kind"] == "List":
                 for item in part["items"]:
-                    _add_label(item)
-                    _adjust_registry(item)
-                    _adjust_arguments(item)
+                    adjust(item)
             else:
-                _add_label(part)
-                _adjust_registry(part)
-                _adjust_arguments(part)
+                adjust(part)
         return yaml.safe_dump_all(data)
 
     def delete_resources(

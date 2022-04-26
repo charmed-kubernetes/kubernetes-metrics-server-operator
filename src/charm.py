@@ -18,7 +18,7 @@ from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, WaitingStatus
 
-from manifests import Manifests
+from metric_server_manifests import MetricServerManifests
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class KubernetesMetricsServerOperator(CharmBase):
         self.framework.observe(self.on.scrub_resources_action, self._scrub_resources)
         self.framework.observe(self.on.update_status, self._update_status)
 
-        self.manifests = Manifests(self)
+        self.manifests = MetricServerManifests(self)
 
     def _list_versions(self, event):
         result = {
@@ -84,9 +84,9 @@ class KubernetesMetricsServerOperator(CharmBase):
         for resource in self.manifests.status():
             for cond in resource.status.conditions:
                 if cond.status != "True":
-                    unready.append(f"{resource}-{cond.type}")
+                    unready.append(f"{resource} not {cond.type}")
         if unready:
-            self.unit.status = WaitingStatus(f"Not-Ready: {', '.join(unready)}")
+            self.unit.status = WaitingStatus(", ".join(sorted(unready)))
         else:
             self.unit.status = ActiveStatus("Ready")
             self.unit.set_workload_version(self.manifests.current_release)
