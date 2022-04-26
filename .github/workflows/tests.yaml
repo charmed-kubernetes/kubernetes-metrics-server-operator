@@ -92,12 +92,12 @@ jobs:
       - name: Collect Juju Status
         if: ${{ failure() }}
         run: sudo juju status 2>&1 | tee tmp/juju-status.txt
-      - name: Collect K8s Deployment details
+      - name: Collect K8s details
         if: ${{ failure() }}
-        run: sudo microk8s.kubectl describe deployments -A 2>&1 | tee tmp/microk8s-deployments.txt
-      - name: Collect K8s DaemonSet details
-        if: ${{ failure() }}
-        run: sudo microk8s.kubectl describe apiservice -A 2>&1 | tee tmp/microk8s-apiservice.txt
+        run: | 
+          sudo microk8s.kubectl describe apiservice -A 2>&1 | tee tmp/microk8s-apiservice.txt
+          sudo microk8s.kubectl describe deployments -A 2>&1 | tee tmp/microk8s-deployments.txt
+          sudo microk8s.kubectl describe pods -A 2>&1 | tee tmp/microk8s-pods.txt
       - name: Collect K8s pod logs
         if: ${{ failure() }}
         run: |

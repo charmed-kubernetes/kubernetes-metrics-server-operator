@@ -2,6 +2,19 @@
 # See LICENSE file for licensing details.
 #
 options:
+  extra-args:
+    type: string
+    description: |
+      Each release starts the metric-server with a specific set of arguments
+      as defined by the official manifests.  
+      
+      By adding space separated arguments, the flags/configs will amend and overwrite
+      any existing config defined by that releases' manifest.
+      
+      example)
+        #--kubelet-insecure-tls - Do not verify the CA of serving certificates presented by Kubelets. For testing purposes only.
+        juju config kubernetes-metrics-server extra-args='--kubelet-insecure-tls'
+
   registry-server:
     type: string
     description: |

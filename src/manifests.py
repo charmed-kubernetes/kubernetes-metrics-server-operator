@@ -165,7 +165,35 @@ class Manifests:
                     _, image = full_image.split("/", 1)
                     new_full_image = f"{registry}/{image}"
                     container["image"] = new_full_image
-                    log.info(f"Replacing {full_image} with {new_full_image}")
+                    log.info(f"Replacing Image: {full_image} with {new_full_image}")
+
+        def _args_or_flags(args_list):
+            """Create unique argument dict from value args or flag args."""
+            return dict(
+                arg.split("=", 1) if "=" in arg else (arg, None) for arg in args_list
+            )
+
+        def _adjust_arguments(obj):
+            """Append the extra-args to the metric-server deployment."""
+            if not (
+                obj.get("kind") == "Deployment"
+                and obj["metadata"]["name"] == "metrics-server"
+            ):
+                return
+            extra_args = self.config.get("extra-args")
+            if not extra_args:
+                return
+            containers = obj["spec"]["template"]["spec"]["containers"]
+            for container in containers:
+                if container["name"] != "metrics-server":
+                    continue
+                full_args = _args_or_flags(container["args"])
+                full_args.update(**_args_or_flags(extra_args.split()))
+                new_args = [
+                    arg if value is None else f"{arg}={value}"
+                    for arg, value in full_args.items()
+                ]
+                log.info(f"Replacing Args: {full_args} with {new_args}")
 
         data = [_ for _ in yaml.safe_load_all(content) if _]
         for part in data:
@@ -173,9 +201,11 @@ class Manifests:
                 for item in part["items"]:
                     _add_label(item)
                     _adjust_registry(item)
+                    _adjust_arguments(item)
             else:
                 _add_label(part)
                 _adjust_registry(part)
+                _adjust_arguments(part)
         return yaml.safe_dump_all(data)
 
     def delete_resources(

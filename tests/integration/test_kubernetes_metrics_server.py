@@ -28,6 +28,7 @@ async def test_charm_builds_and_deploys(ops_test, metadata, update_status_timeou
         entity_url=charm.resolve(),
         trust=True,
         resources={"operator-base": image},
+        config={"extra-args": "--kubelet-insecure-tls"},
     )
 
     await ops_test.model.block_until(
