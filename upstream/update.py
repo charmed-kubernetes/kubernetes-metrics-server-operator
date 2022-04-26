@@ -49,8 +49,8 @@ class Release:
     def __hash__(self) -> int:
         return hash(self.name)
 
-    def __eq__(self, other: "Release") -> bool:
-        return self.name == other.name
+    def __eq__(self, other) -> bool:
+        return isinstance(other, Release) and self.name == other.name
 
 
 SyncAsset = TypedDict("SyncAsset", {"source": str, "target": str, "type": str})
