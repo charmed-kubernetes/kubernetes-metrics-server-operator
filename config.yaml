@@ -15,20 +15,20 @@ options:
         #--kubelet-insecure-tls - Do not verify the CA of serving certificates presented by Kubelets. For testing purposes only.
         juju config kubernetes-metrics-server extra-args='--kubelet-insecure-tls'
 
-  registry-server:
+  image-registry:
     type: string
     description: |
       Source registry of metrics server images.
 
       By setting to a value, each image listed in the component.yaml
-      has its registry-server replaces. 
+      has its image-registry replaced. 
 
       If unset, the component.yaml will use its default image registry.
 
       example)
-        juju config kubernetes-metrics-server registry-server='rocks.canonical.com:443/cdk'
+        juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
 
-        juju config kubernetes-metrics-server --reset registry-server
+        juju config kubernetes-metrics-server --reset image-registry
   release:
     type: string
     description: |

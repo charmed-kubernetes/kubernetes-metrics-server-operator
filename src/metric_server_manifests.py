@@ -17,7 +17,7 @@ class MetricServerManifests(Manifests):
         )
 
     def apply_registry(self, obj):
-        registry = self.config.get("registry-server")
+        registry = self.config.get("image-registry")
         if not registry:
             return
         spec = obj.get("spec") or {}

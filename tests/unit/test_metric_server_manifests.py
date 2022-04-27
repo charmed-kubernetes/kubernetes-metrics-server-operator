@@ -44,7 +44,7 @@ def test_deployment_registry(request, registry):
     charm = MagicMock()
     charm.model.name = "ns:" + request.node.name
     charm.model.app.name = "app:" + request.node.name
-    charm.config = {"registry-server": registry}
+    charm.config = {"image-registry": registry}
     manifests = MetricServerManifests(charm)
     latest = Path("upstream", "version").read_text().strip()
     original = Path("upstream", "manifests", latest, "components.yaml").read_text()

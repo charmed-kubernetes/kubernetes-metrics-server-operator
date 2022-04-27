@@ -18,6 +18,6 @@ juju config kubernetes-metrics-server release='v0.6.1'
 
 * Supports easily changing the image repository to a mirrored registry server
 ```bash
-juju config kubernetes-metrics-server registry-server='rocks.canonical.com:443/cdk'
+juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
 ```
 
