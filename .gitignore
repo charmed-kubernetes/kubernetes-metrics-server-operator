@@ -1,8 +1,12 @@
 venv/
 build/
 *.charm
+.mypy_cache/
+.pytest_cache/
 .tox/
 .coverage
+htmlcov/
 __pycache__/
 *.py[cod]
 juju-crashdump-*
+regsync

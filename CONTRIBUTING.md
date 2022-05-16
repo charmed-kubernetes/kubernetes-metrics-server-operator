@@ -43,6 +43,27 @@ Tox environment target:
 tox -e integration
 ```
 
+## Updating
+
+The kubernetes-metrics-server-operator bundles many releases of the metric-server in one charm
+with configuration to switch between releases.  From time-to-time, when a new
+metrics-server is released, It will be necessary to rebuild this charm with the new component.yaml
+included and optionally push the images to a new mirror. 
+
+To complete this upgrade:
+
+```bash
+git clone https://github.com/charmed-kubernetes/kubernetes-metrics-server-operator
+cd kubernetes-metrics-server-operator/
+
+# if syncing to a mirror registry, you'll need regsync binary
+wget https://github.com/regclient/regclient/releases/download/v0.4.2/regsync-linux-amd64 -O regsync
+chmod +x regsync
+
+# sync all the releases and sync all the images to my.registry/library/metrics-server/metrics-server
+tox -e update -- --registry my.registry library push-user $HOME/.push-user-password
+```
+
 
 [LICENSE]: ./LICENSE
 [CLA]: https://ubuntu.com/legal/contributors/agreement

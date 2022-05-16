@@ -1,11 +1,12 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 #
+from pathlib import Path
 import pytest
 
 
 from charm import KubernetesMetricsServerOperator
-from ops.model import ActiveStatus, MaintenanceStatus
+from ops.model import WaitingStatus, MaintenanceStatus
 from ops.testing import Harness
 
 
@@ -21,5 +22,8 @@ def harness(request):
 def test_metrics_server_after_config_minimal(lightkube_client, harness):
     assert harness.model.unit.status == MaintenanceStatus("")
     harness.update_config({})
-    assert harness.model.unit.status == ActiveStatus("Ready")
+    latest_version = Path("upstream", "version").read_text().strip()
+    assert harness.model.unit.status == WaitingStatus(
+        f"Configuring metrics-server {latest_version}"
+    )
     lightkube_client.apply.assert_called()

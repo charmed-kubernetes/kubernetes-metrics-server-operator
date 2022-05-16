@@ -1,3 +1,5 @@
+list-versions:
+  description: List Metrics Server Versions supported by this charm
 list-resources:
   description: List Metrics Server Resources
   params:
