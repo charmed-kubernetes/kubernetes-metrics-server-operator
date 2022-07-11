@@ -6,30 +6,18 @@ on:
     branches: [main]
 
 jobs:
-  Inclusive-naming-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-      - name: woke
-        uses: canonical-web-and-design/inclusive-naming@main
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-check
-          fail-on-error: true
+  call-inclusive-naming-check:
+    name: Inclusive naming
+    uses: canonical-web-and-design/Inclusive-naming/.github/workflows/woke.yaml@main
+    with:
+      fail-on-error: "true"
 
-  lint-and-unit:
-    name: Lint & Unit tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-    - name: Install Dependencies
-      run: |
-        pip install tox
-    - name: Run lint
-      run: tox
-
+  lint-unit:
+    name: Lint Unit
+    uses: charmed-kubernetes/workflows/.github/workflows/lint-unit.yaml@main
+    needs: 
+      - call-inclusive-naming-check
+  
   charmcraft-build:
     name: Build Charm
     runs-on: ubuntu-latest
