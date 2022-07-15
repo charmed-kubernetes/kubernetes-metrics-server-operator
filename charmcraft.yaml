@@ -2,7 +2,7 @@
 # https://juju.is/docs/sdk/charmcraft-config
 
 # Architectures based on supported arch's in upstream
-# https://github.com/kubernetes-sigs/metrics-server/blob/master/Makefile#L14
+# https://github.com/kubernetes-sigs/metrics-server/blob/2efcd9fe23d41e20660d06eaf15619db25b900ed/Makefile#L14
 type: "charm"
 bases:
   - build-on:
