@@ -116,8 +116,9 @@ def images(component: Release) -> Generator[str, None, None]:
     """Yield all images from each release."""
     with Path(component.path).open() as fp:
         for line in fp:
-            if m := IMG_RE.match(line):
-                yield m.groups()[0]
+            matches = IMG_RE.match(line)
+            if matches:
+                yield matches.groups()[0]
 
 
 def mirror_image(images: List[str], registry: Registry):
@@ -136,7 +137,7 @@ def mirror_image(images: List[str], registry: Registry):
             encoding="utf-8",
         )
         while proc.returncode is None:
-            for line in proc.stdout:
+            for line in proc.stdout or "":
                 print(line.strip())
             proc.poll()
 
