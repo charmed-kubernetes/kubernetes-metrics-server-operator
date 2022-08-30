@@ -145,7 +145,7 @@ class Manifests:
             log.info(
                 f"Adding {obj.kind}/{name}" + (f" to {namespace}" if namespace else "")
             )
-            self.client.apply(obj, name)
+            self.client.apply(obj, name, force=True)
 
     def add_label(self, obj):
         obj["metadata"].setdefault("labels", {})
