@@ -10,22 +10,17 @@ description: |
   Metrics Server exposes core Kubernetes metrics via metrics API.
   See https://github.com/kubernetes/kubernetes/tree/<release-tag>/cluster/addons/metrics-server
 
+base: ubuntu@24.04
 platforms:
   ubuntu-24.04-amd64:
-    build-on:
-    - ubuntu@24.04:amd64
-    build-for:
-    - ubuntu@24.04:amd64
+    build-on: [amd64]
+    build-for: [amd64]
   ubuntu-24.04-arm64:
-    build-on:
-    - ubuntu@24.04:arm64
-    build-for:
-    - ubuntu@24.04:arm64
+    build-on: [arm64]
+    build-for: [arm64]
   ubuntu-24.04-s390x:
-    build-on:
-    - ubuntu@24.04:s390x
-    build-for:
-    - ubuntu@24.04:s390x
+    build-on: [s390x]
+    build-for: [s390x]
 
 parts:
   charm:
