@@ -9,7 +9,6 @@ import subprocess
 import sys
 import re
 import urllib.request
-import urllib.error
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +18,7 @@ from typing import Generator, List, Optional, Set, Tuple, TypedDict
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 REPO = "https://api.github.com/repos/kubernetes-sigs/metrics-server/releases"
-FILEDIR = Path(__file__).parent
+FILEDIR = Path(__file__).parent/"metrics-server"
 VERSION_RE = re.compile(r"^v\d+\.\d+\.\d+")
 IMG_RE = re.compile(r"^\s+image:\s+(\S+)")
 
@@ -131,7 +130,7 @@ def mirror_image(images: List[str], registry: Registry):
     with NamedTemporaryFile(mode="w") as tmpfile:
         yaml.safe_dump(sync_config, tmpfile)
         proc = subprocess.Popen(
-            ["./regsync", "once", "-c", tmpfile.name, "-v", "debug"],
+            ["regsync", "once", "-c", tmpfile.name, "-v", "debug"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             encoding="utf-8",

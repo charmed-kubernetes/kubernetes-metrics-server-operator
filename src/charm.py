@@ -13,18 +13,20 @@ develop a new k8s charm using the Operator Framework:
 """
 
 import logging
+from typing import cast
 
-from ops.charm import CharmBase
-from ops.main import main
-from ops.model import ActiveStatus, WaitingStatus
+import ops
+from ops.manifests import Collector, ManifestClientError
 
 from metric_server_manifests import MetricServerManifests
 
 logger = logging.getLogger(__name__)
 
 
-class KubernetesMetricsServerOperator(CharmBase):
+class KubernetesMetricsServerOperator(ops.CharmBase):
     """Charm the service."""
+
+    stored = ops.StoredState()
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -36,76 +38,87 @@ class KubernetesMetricsServerOperator(CharmBase):
         self.framework.observe(self.on.list_versions_action, self._list_versions)
         self.framework.observe(self.on.list_resources_action, self._list_resources)
         self.framework.observe(self.on.scrub_resources_action, self._scrub_resources)
+        self.framework.observe(self.on.sync_resources_action, self._sync_resources)
         self.framework.observe(self.on.update_status, self._update_status)
 
-        self.manifests = MetricServerManifests(self)
+        self.stored.set_default(
+            config_hash=0
+        )  # hashed value of the provider config once valid
+        self.collector = Collector(MetricServerManifests(self))
 
-    def _list_versions(self, event):
-        result = {
-            "versions": "\n".join(sorted(str(_) for _ in self.manifests.releases)),
-        }
-        event.set_results(result)
+    def _list_versions(self, event: ops.ActionEvent) -> None:
+        self.collector.list_versions(event)
 
-    def _list_resources(self, event):
-        res_filter = [_.lower() for _ in event.params.get("resources", "").split()]
-        if res_filter:
-            event.log(f"Filter resource listing with {res_filter}")
-        current = self.manifests.active_resources()
-        expected = self.manifests.expected_resources()
-        correct, extra, missing = (
-            set(),
-            set(),
-            set(),
-        )
-        for kind_ns, current_set in current.items():
-            if not res_filter or kind_ns.kind.lower() in res_filter:
-                expected_set = expected[kind_ns]
-                correct |= current_set & expected_set
-                extra |= current_set - expected_set
-                missing |= expected_set - current_set
+    def _list_resources(self, event: ops.ActionEvent) -> None:
+        manifests = event.params.get("manifest", "")
+        resources = event.params.get("resources", "")
+        self.collector.list_resources(event, manifests, resources)
 
-        result = {
-            "correct": "\n".join(sorted(str(_) for _ in correct)),
-            "extra": "\n".join(sorted(str(_) for _ in extra)),
-            "missing": "\n".join(sorted(str(_) for _ in missing)),
-        }
-        result = {k: v for k, v in result.items() if v}
-        event.set_results(result)
-        return correct, extra, missing
+    def _scrub_resources(self, event: ops.ActionEvent) -> None:
+        manifests = event.params.get("manifest", "")
+        resources = event.params.get("resources", "")
+        self.collector.scrub_resources(event, manifests, resources)
 
-    def _scrub_resources(self, event):
-        _, extra, __ = self._list_resources(event)
-        if extra:
-            self.manifests.delete_resources(*extra)
-            self._list_resources(event)
-
-    def _update_status(self, _):
-        unready = []
-        for resource in self.manifests.status():
-            for cond in resource.status.conditions:
-                if cond.status != "True":
-                    unready.append(f"{resource} not {cond.type}")
-        if unready:
-            self.unit.status = WaitingStatus(", ".join(sorted(unready)))
+    def _sync_resources(self, event: ops.ActionEvent) -> None:
+        manifests = event.params.get("manifest", "")
+        resources = event.params.get("resources", "")
+        try:
+            self.collector.apply_missing_resources(event, manifests, resources)
+        except ManifestClientError as e:
+            msg = "Failed to sync missing resources: "
+            msg += " -> ".join(map(str, e.args))
+            event.set_results({"result": msg})
         else:
-            self.unit.status = ActiveStatus("Ready")
-            self.unit.set_workload_version(self.manifests.current_release)
+            self.stored.deployed = True
+
+    def _update_status(self, _: ops.UpdateStatusEvent) -> None:
+        unready = self.collector.unready
+        if unready:
+            self.unit.status = ops.WaitingStatus(", ".join(sorted(unready)))
+        else:
+            self.unit.status = ops.ActiveStatus("Ready")
+            self.unit.set_workload_version(self.collector.short_version)
+            self.app.status = ops.ActiveStatus(self.collector.long_version)
+
+    def evaluate_manifests(self) -> int:
+        """Evaluate all manifests."""
+        self.unit.status = ops.MaintenanceStatus("Configuring metrics-server")
+        new_hash = 0
+        for manifest in self.collector.manifests.values():
+            manifest = cast(MetricServerManifests, manifest)
+            if evaluation := manifest.evaluate():
+                self.unit.status = ops.BlockedStatus(evaluation)
+                return -1
+            new_hash += manifest.hash()
+        return new_hash
 
     def _install_or_upgrade(self, _):
         """Install the manifests."""
-        self.unit.set_workload_version("")
-        try:
-            self.manifests.apply_manifests()
-        except ConnectionError:
-            self.unit.status = WaitingStatus("Waiting for API server.")
-        self.unit.status = WaitingStatus(
-            f"Configuring metrics-server {self.manifests.current_release}"
-        )
+        if (config_hash := self.evaluate_manifests()) < 1:
+            return
+        if cast(int, self.stored.config_hash) == config_hash:
+            logger.info(f"No config changes detected. config_hash={config_hash}")
+            return
+        if self.unit.is_leader():
+            self.unit.status = ops.MaintenanceStatus(
+                "Deploying Kubernetes Metrics Server"
+            )
+            self.unit.set_workload_version("")
+            for manifest in self.collector.manifests.values():
+                try:
+                    manifest.apply_manifests()
+                except ManifestClientError as e:
+                    failure_msg = " -> ".join(map(str, e.args))
+                    self.unit.status = ops.WaitingStatus(failure_msg)
+                    logger.warning("Encountered retryable installation error: %s", e)
+                    return
+        self.stored.config_hash = config_hash
 
     def _cleanup(self, _):
-        self.unit.status = WaitingStatus("Shutting down")
-        self.manifests.delete_manifests(ignore_unauthorized=True)
+        self.unit.status = ops.MaintenanceStatus("Removing resources")
+        for manifest in self.collector.manifests.values():
+            manifest.delete_manifests(ignore_unauthorized=True, ignore_not_found=True)
 
 
 if __name__ == "__main__":
-    main(KubernetesMetricsServerOperator)
+    ops.main(KubernetesMetricsServerOperator)
