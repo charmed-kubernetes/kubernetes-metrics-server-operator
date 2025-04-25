@@ -1,6 +1,7 @@
 import logging
 import json
 from hashlib import sha256
+import ops
 from lightkube.codecs import AnyResource
 from ops.manifests import ConfigRegistry, Manifests, ManifestLabel, Patch
 
@@ -39,7 +40,7 @@ class ApplyArguments(Patch):
 
 
 class MetricServerManifests(Manifests):
-    def __init__(self, charm):
+    def __init__(self, charm: ops.CharmBase):
         super().__init__(
             "metrics-server",
             charm.model,
@@ -57,9 +58,10 @@ class MetricServerManifests(Manifests):
         """Return the config for the manifests."""
         return dict(self._charm.model.config)
 
-    def evaluate(self) -> None:
+    def evaluate(self) -> str:
         """Evaluate the storage class."""
         log.info("Evaluating manifests")
+        return ""
 
     def hash(self) -> int:
         """Return a hash of the manifests."""

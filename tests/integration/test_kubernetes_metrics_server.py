@@ -44,7 +44,7 @@ async def test_adjust_version(application, ops_test, update_status_timeout):
 
 
 async def test_charm_status(application, units):
-    latest_version = Path("upstream", "version").read_text().strip()
+    latest_version = Path("upstream", "metrics-server", "version").read_text().strip()
     assert units[0].workload_status == "active"
     assert units[0].workload_status_message == "Ready"
     assert application.status == "active"

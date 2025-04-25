@@ -36,15 +36,6 @@ parts:
       git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > $CRAFT_PRIME/version
     build-packages:
     - git
-    charm-python-packages:
-    - setuptools
-    - pip
-  manifests:
-    plugin: dump
-    after: [charm]
-    source: .
-    organize:
-      upstream: upstream/**
 
 assumes:
 - k8s-api
