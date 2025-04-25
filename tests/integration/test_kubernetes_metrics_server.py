@@ -14,7 +14,6 @@ def update_status_timeout():
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
 async def test_charm_builds_and_deploys(ops_test, metadata, update_status_timeout):
-    image = metadata["resources"]["operator-base"]["upstream-source"]
     charm_name = metadata["name"]
 
     # Speed up the tests
@@ -28,7 +27,6 @@ async def test_charm_builds_and_deploys(ops_test, metadata, update_status_timeou
     await ops_test.model.deploy(
         entity_url=charm.resolve(),
         trust=True,
-        resources={"operator-base": image},
         config={"extra-args": "--kubelet-insecure-tls"},
     )
 
@@ -46,7 +44,7 @@ async def test_adjust_version(application, ops_test, update_status_timeout):
 
 
 async def test_charm_status(application, units):
-    latest_version = Path("upstream", "version").read_text().strip()
+    latest_version = Path("upstream", "metrics-server", "version").read_text().strip()
     assert units[0].workload_status == "active"
     assert units[0].workload_status_message == "Ready"
     assert application.status == "active"

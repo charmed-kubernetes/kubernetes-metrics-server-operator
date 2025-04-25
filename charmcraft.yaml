@@ -3,31 +3,133 @@
 
 # Architectures based on supported arch's in upstream
 # https://github.com/kubernetes-sigs/metrics-server/blob/2efcd9fe23d41e20660d06eaf15619db25b900ed/Makefile#L14
+name: kubernetes-metrics-server
 type: "charm"
-bases:
-  - build-on:
-    - name: "ubuntu"
-      channel: "20.04"
-      architectures: ["amd64"]
-    run-on:
-    - name: "ubuntu"
-      channel: "20.04"
-      architectures:
-        - amd64
-        - arm
-        - arm64
-        - ppc64le
-        - s390x
-    - name: "ubuntu"
-      channel: "22.04"
-      architectures:
-        - amd64
-        - arm
-        - arm64
-        - ppc64le
-        - s390x
+summary: Operator Charm for Kubernetes metrics server
+description: |
+  Metrics Server exposes core Kubernetes metrics via metrics API.
+  See https://github.com/kubernetes/kubernetes/tree/<release-tag>/cluster/addons/metrics-server
+
+platforms:
+  ubuntu-24.04-amd64:
+    build-on:
+    - ubuntu@24.04:amd64
+    build-for:
+    - ubuntu@24.04:amd64
+  ubuntu-24.04-arm64:
+    build-on:
+    - ubuntu@24.04:arm64
+    build-for:
+    - ubuntu@24.04:arm64
+  ubuntu-24.04-s390x:
+    build-on:
+    - ubuntu@24.04:s390x
+    build-for:
+    - ubuntu@24.04:s390x
+
 parts:
   charm:
-    charm-python-packages: [setuptools]  # required to use jinja2
-    prime:
-    - upstream/**
+    source: .
+    plugin: charm
+    override-build: |
+      craftctl default
+      git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > $CRAFT_PRIME/version
+    build-packages:
+    - git
+
+assumes:
+- k8s-api
+
+config:
+  options:
+    extra-args:
+      type: string
+      description: |
+        Each release starts the metric-server with a specific set of arguments
+        as defined by the official manifests.
+
+        By adding space separated arguments, the flags/configs will amend and overwrite
+        any existing config defined by that releases' manifest.
+
+        example)
+          #--kubelet-insecure-tls - Do not verify the CA of serving certificates presented by Kubelets. For testing purposes only.
+          juju config kubernetes-metrics-server extra-args='--kubelet-insecure-tls'
+
+    image-registry:
+      type: string
+      description: |
+        Source registry of metrics server images.
+
+        By setting to a value, each image listed in the component.yaml
+        has its image-registry replaced.
+
+        If unset, the component.yaml will use its default image registry.
+
+        example)
+          juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
+
+          juju config kubernetes-metrics-server --reset image-registry
+    release:
+      type: string
+      description: |
+        Specify the version of metrics-server as defined by
+        https://github.com/kubernetes-sigs/metrics-server/releases
+
+        example)
+          juju config kubernetes-metrics-server release='v0.6.1'
+
+        A list of supported versions is available through the action:
+          juju run-action kubernetes-metrics-server/0 list-releases --wait
+
+        To reset by to the latest supported by the charm use:
+          juju config kubernetes-metrics-server --reset release
+
+        The current release deployed is available by viewing
+          juju status kubernetes-metrics-server
+
+actions:
+  list-versions:
+    description: List versions supported by this charm
+  list-resources:
+    description: List Resources of configured version
+    params:
+      manifest:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "cephfs, rbc, or config" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types to filter list result
+  scrub-resources:
+    description: Remove deployments other than the current one
+    params:
+      manifest:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "cephfs, rbc, or config" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types to filter scrubbing
+  sync-resources:
+    description: |
+      Add kubernetes resources which should be created by this charm which aren't
+      present within the cluster.
+    params:
+      manifest:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "cephfs, rbc, or config" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types
+          to use a filter during the sync. This helps limit
+          which missing resources are applied.

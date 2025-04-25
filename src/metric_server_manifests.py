@@ -1,55 +1,70 @@
 import logging
-from manifests import Manifests
+import json
+from hashlib import sha256
+import ops
+from lightkube.codecs import AnyResource
+from ops.manifests import ConfigRegistry, Manifests, ManifestLabel, Patch
 
 log = logging.getLogger(__file__)
 
 
-class MetricServerManifests(Manifests):
-    def __init__(self, charm):
-        manipulations = [self.add_label, self.apply_registry, self.apply_arguments]
-        super().__init__(charm, manipulations)
+def _args_or_flags(args_list):
+    """Create unique argument dict from value args or flag args."""
+    return dict(arg.split("=", 1) if "=" in arg else (arg, None) for arg in args_list)
 
-    @staticmethod
-    def _args_or_flags(args_list):
-        """Create unique argument dict from value args or flag args."""
-        return dict(
-            arg.split("=", 1) if "=" in arg else (arg, None) for arg in args_list
-        )
 
-    def apply_registry(self, obj):
-        registry = self.config.get("image-registry")
-        if not registry:
-            return
-        spec = obj.get("spec") or {}
-        template = spec and spec.get("template") or {}
-        inner_spec = template and template.get("spec") or {}
-        containers = inner_spec and inner_spec.get("containers") or {}
-        for container in containers:
-            if full_image := container.get("image"):
-                _, image = full_image.split("/", 1)
-                new_full_image = f"{registry}/{image}"
-                container["image"] = new_full_image
-                log.info(f"Replacing Image: {full_image} with {new_full_image}")
+class ApplyArguments(Patch):
+    """Apply extra args to the metric-server deployment."""
 
-    def apply_arguments(self, obj):
-        """Append the extra-args to the metric-server deployment."""
+    def __call__(self, obj: AnyResource) -> None:
+        """Update deployment arguments."""
         if not (
-            obj.get("kind") == "Deployment"
-            and obj["metadata"]["name"] == "metrics-server"
+            obj.kind == "Deployment"
+            and obj.metadata
+            and obj.metadata.name == "metrics-server"
         ):
             return
-        extra_args = self.config.get("extra-args")
-        if not extra_args:
-            return
-        containers = obj["spec"]["template"]["spec"]["containers"]
-        for container in containers:
-            if container["name"] != "metrics-server":
-                continue
-            full_args = self._args_or_flags(container["args"])
-            full_args.update(**self._args_or_flags(extra_args.split()))
-            new_args = [
-                arg if value is None else f"{arg}={value}"
-                for arg, value in full_args.items()
-            ]
-            log.info(f"Replacing Args: {full_args} with {new_args}")
-            container["args"] = new_args
+        if extra_args := self.manifests.config.get("extra-args"):
+            containers = obj.spec.template.spec.containers
+            for container in containers:
+                if container.name != "metrics-server":
+                    continue
+                full_args = _args_or_flags(container.args)
+                full_args.update(**_args_or_flags(extra_args.split()))
+                new_args = [
+                    arg if value is None else f"{arg}={value}"
+                    for arg, value in full_args.items()
+                ]
+                log.info(f"Replacing Args: {full_args} with {new_args}")
+                container.args = new_args
+
+
+class MetricServerManifests(Manifests):
+    def __init__(self, charm: ops.CharmBase):
+        super().__init__(
+            "metrics-server",
+            charm.model,
+            "upstream/metrics-server",
+            [
+                ManifestLabel(self),
+                ConfigRegistry(self),
+                ApplyArguments(self),
+            ],
+        )
+        self._charm = charm
+
+    @property
+    def config(self):
+        """Return the config for the manifests."""
+        return dict(self._charm.model.config)
+
+    def evaluate(self) -> str:
+        """Evaluate the storage class."""
+        log.info("Evaluating manifests")
+        return ""
+
+    def hash(self) -> int:
+        """Return a hash of the manifests."""
+        return int(
+            sha256(json.dumps(self.config, sort_keys=True).encode()).hexdigest(), 16
+        )

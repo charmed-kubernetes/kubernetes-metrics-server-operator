@@ -11,14 +11,14 @@ log = logging.getLogger(__name__)
 
 
 @pytest_asyncio.fixture(scope="module")
-async def kubernetes(request):
+async def kubernetes():
     client = Client()
     yield client
 
 
 @pytest.fixture
 def metadata():
-    metadata = Path("./metadata.yaml")
+    metadata = Path("./charmcraft.yaml")
     data = yaml.safe_load(metadata.read_text())
     return data
 
