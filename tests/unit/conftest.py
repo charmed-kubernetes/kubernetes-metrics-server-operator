@@ -1,6 +1,7 @@
+from unittest.mock import MagicMock, patch
+
 import lightkube
 import pytest
-from unittest.mock import MagicMock, patch
 
 
 @pytest.fixture(autouse=True)
