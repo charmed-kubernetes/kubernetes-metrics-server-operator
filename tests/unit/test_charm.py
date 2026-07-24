@@ -2,9 +2,10 @@
 # See LICENSE file for licensing details.
 #
 import pytest
-from charm import KubernetesMetricsServerOperator
 from ops.model import MaintenanceStatus
 from ops.testing import Harness
+
+from charm import KubernetesMetricsServerOperator
 
 
 @pytest.fixture(scope="function")
