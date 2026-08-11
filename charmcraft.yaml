@@ -61,7 +61,7 @@ config:
         If unset, the component.yaml will use its default image registry.
 
         example)
-          juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
+          juju config kubernetes-metrics-server image-registry='ghcr.io/canonical/cdk'
 
           juju config kubernetes-metrics-server --reset image-registry
     release:
