@@ -1,12 +1,11 @@
-import json
 import logging
+import json
 from hashlib import sha256
-
 import ops
 from lightkube.codecs import AnyResource
-from ops.manifests import ConfigRegistry, ManifestLabel, Manifests, Patch
+from ops.manifests import ConfigRegistry, Manifests, ManifestLabel, Patch
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(__file__)
 
 
 def _args_or_flags(args_list):

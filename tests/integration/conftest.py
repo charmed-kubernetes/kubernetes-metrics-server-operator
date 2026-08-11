@@ -1,9 +1,10 @@
 import logging
-from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from pathlib import Path
 import yaml
+
 from lightkube import Client
 
 log = logging.getLogger(__name__)

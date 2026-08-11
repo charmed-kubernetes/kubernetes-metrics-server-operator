@@ -2,10 +2,11 @@
 # See LICENSE file for licensing details.
 #
 import pytest
-from ops.model import MaintenanceStatus
-from ops.testing import Harness
+
 
 from charm import KubernetesMetricsServerOperator
+from ops.model import MaintenanceStatus
+from ops.testing import Harness
 
 
 @pytest.fixture(scope="function")
@@ -34,7 +35,7 @@ def test_metrics_server_after_config_extra_args(harness):
         "Deploying Kubernetes Metrics Server"
     )
     for manifests in harness.charm.collector.manifests.values():
-        deployment = next(r for r in manifests.resources if r.kind == "Deployment")
+        deployment = [r for r in manifests.resources if r.kind == "Deployment"][0]
         args = deployment.resource.spec.template.spec.containers[0].args
         assert "--testable=1" in args, "Should add a new arg"
         assert "--metric-resolution=30s" in args, "Should replace args"

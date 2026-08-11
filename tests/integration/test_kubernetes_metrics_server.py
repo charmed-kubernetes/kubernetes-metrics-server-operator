@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-
 import lightkube.generic_resource
 import pytest
 
@@ -38,7 +37,7 @@ async def test_charm_builds_and_deploys(ops_test, metadata, update_status_timeou
 
 
 async def test_adjust_version(application, ops_test, update_status_timeout):
-    await application.set_config({"release": "v0.6.0"})
+    await application.set_config(dict(release="v0.6.0"))
     await ops_test.model.wait_for_idle(status="active", timeout=update_status_timeout)
     await application.reset_config(["release"])
     await ops_test.model.wait_for_idle(status="active", timeout=update_status_timeout)
