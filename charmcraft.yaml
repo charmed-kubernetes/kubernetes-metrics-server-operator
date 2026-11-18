@@ -66,6 +66,7 @@ config:
           juju config kubernetes-metrics-server --reset image-registry
     release:
       type: string
+      default: v0.9.1
       description: |
         Specify the version of metrics-server as defined by
         https://github.com/kubernetes-sigs/metrics-server/releases
@@ -76,7 +77,7 @@ config:
         A list of supported versions is available through the action:
           juju run-action kubernetes-metrics-server/0 list-releases --wait
 
-        To reset by to the latest supported by the charm use:
+        To reset to the default release of the charm use:
           juju config kubernetes-metrics-server --reset release
 
         The current release deployed is available by viewing
